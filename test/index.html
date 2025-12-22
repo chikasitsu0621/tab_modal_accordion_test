@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>アクセシブルなタブ・モーダル・アコーディオン</title>
+  <style>
+    /* リセットと基本スタイル */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      line-height: 1.5;
+      background-color: #fafafa;
+    }
+    h1 {
+      text-align: center;
+      padding: 1rem;
+      margin: 0;
+    }
+
+    /* タブリスト */
+    .tablist {
+      display: flex;
+      flex-wrap: wrap;
+      border-bottom: 2px solid #ccc;
+      background: #fff;
+    }
+    .tablist button[role="tab"] {
+      flex: 1 1 auto;
+      padding: 0.75rem 1rem;
+      margin: 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 1rem;
+      border-bottom: 4px solid transparent;
+    }
+    .tablist button[aria-selected="true"] {
+      border-bottom-color: #007bff;
+      font-weight: bold;
+      color: #007bff;
+    }
+    .tablist button:focus {
+      outline: 2px solid #007bff;
+      outline-offset: -2px;
+    }
+
+    /* パネル表示 */
+    .tabpanel {
+      display: none;
+      padding: 1rem;
+    }
+    .tabpanel.active {
+      display: block;
+    }
+
+    /* 画像ボタン (PC用) */
+    .image-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .image-buttons button {
+      flex: 1 1 calc(25% - 1rem);
+      min-width: 120px;
+      padding: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #f5f5f5;
+      cursor: pointer;
+    }
+    .image-buttons button:hover,
+    .image-buttons button:focus {
+      background: #e9f3ff;
+      border-color: #007bff;
+      outline: none;
+    }
+
+    /* 新しいシンプルタブ用: 画像そのものを表示 */
+    .image-buttons img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    /* モーダル */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal.open {
+      display: flex;
+    }
+    .modal-content {
+      background: #fff;
+      padding: 1rem;
+      max-width: 90%;
+      max-height: 90%;
+      overflow-y: auto;
+      border-radius: 4px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-content img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto 1rem;
+    }
+    .close-modal {
+      align-self: flex-end;
+      margin-top: 1rem;
+      border: none;
+      background: #007bff;
+      color: #fff;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .close-modal:focus {
+      outline: 2px solid #007bff;
+    }
+
+    /* 画像ブロック共通スタイル */
+    .image-block {
+      margin-bottom: 1rem;
+    }
+    .image-block p {
+      margin: 0.5rem 0 0.25rem;
+      font-size: 0.875rem;
+    }
+    .image-block a {
+      color: #007bff;
+      text-decoration: underline;
+      font-size: 0.875rem;
+    }
+
+    /* アコーディオン (スマホ用) */
+    .accordion-container {
+      border-top: 1px solid #ccc;
+    }
+    .accordion-item {
+      border-bottom: 1px solid #ccc;
+    }
+    .accordion-header {
+      width: 100%;
+      text-align: left;
+      padding: 1rem;
+      font-size: 1rem;
+      border: none;
+      background: #f5f5f5;
+      cursor: pointer;
+    }
+    .accordion-header[aria-expanded="true"] {
+      background: #e9f3ff;
+      font-weight: bold;
+    }
+    .accordion-header:focus {
+      outline: 2px solid #007bff;
+    }
+    .accordion-content {
+      padding: 0 1rem 1rem;
+      display: none;
+    }
+    .accordion-content.open {
+      display: block;
+    }
+    .accordion-content img {
+      width: 100%;
+      height: auto;
+      display: block;
+      margin-bottom: 1rem;
+    }
+
+    /* 3カラム表示用（モーダルとアコーディオンの複数画像） */
+    /* モーダル内で複数画像がある場合は横並びにする */
+    #modal-images.multiple {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    #modal-images.multiple img {
+      flex: 1 1 calc(33.333% - 1rem);
+      margin: 0;
+    }
+    .three-col-images {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    /* 3枚画像時のカラム幅を image-block に設定 */
+    .three-col-images .image-block {
+      flex: 1 1 calc(33.333% - 1rem);
+    }
+    .three-col-images img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* レスポンシブスタイル */
+    @media (min-width: 769px) {
+      /* PCではアコーディオンを非表示 */
+      .accordion-container {
+        display: none;
+      }
+    }
+    @media (max-width: 768px) {
+      /* スマホでは画像ボタンとモーダルを非表示 */
+      .image-buttons {
+        display: none;
+      }
+      .modal {
+        /* モーダルはスマホでは使用しない */
+        display: none !important;
+      }
+      /* シンプルタブ内の画像は常に表示 */
+      .simple-tab-module .image-buttons {
+        display: block !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>タブ・モーダル・アコーディオンのデモ</h1>
+  <div class="tablist" role="tablist" aria-label="画像カテゴリ">
+    <button id="tab1" role="tab" aria-selected="true" aria-controls="panel1">タブ 1</button>
+    <button id="tab2" role="tab" aria-selected="false" aria-controls="panel2">タブ 2</button>
+    <button id="tab3" role="tab" aria-selected="false" aria-controls="panel3">タブ 3</button>
+    <button id="tab4" role="tab" aria-selected="false" aria-controls="panel4">タブ 4</button>
+  </div>
+
+  <!-- パネル1 -->
+  <div id="panel1" class="tabpanel active" role="tabpanel" aria-labelledby="tab1" tabindex="0">
+    <!-- PC用ボタン -->
+    <div class="image-buttons">
+      <button class="image-btn" data-images="https://picsum.photos/id/1015/600/400?grayscale=0">
+        画像 1
+      </button>
+      <button class="image-btn" data-images="https://picsum.photos/id/1016/600/400">
+        画像 2
+      </button>
+      <button class="image-btn" data-images="https://picsum.photos/id/1019/600/400,https://picsum.photos/id/1020/600/400,https://picsum.photos/id/1021/600/400">
+        画像 3 (3枚)
+      </button>
+      <button class="image-btn" data-images="https://picsum.photos/id/1024/600/400">
+        画像 4
+      </button>
+    </div>
+    <!-- スマホ用アコーディオン -->
+    <div class="accordion-container" data-tab="panel1">
+      <!-- アイテム1 -->
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc1-1" aria-controls="acc1-1-content" aria-expanded="false">
+          画像 1
+        </button>
+        <div id="acc1-1-content" class="accordion-content" role="region" aria-labelledby="acc1-1" hidden>
+          <div class="image-block">
+            <img src="https://picsum.photos/id/1015/600/400?grayscale=0" alt="画像 1">
+            <p>画像1の説明テキストです。</p>
+            <a href="#">関連リンク</a>
+          </div>
+        </div>
+      </div>
+      <!-- アイテム2 -->
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc1-2" aria-controls="acc1-2-content" aria-expanded="false">
+          画像 2
+        </button>
+        <div id="acc1-2-content" class="accordion-content" role="region" aria-labelledby="acc1-2" hidden>
+          <div class="image-block">
+            <img src="https://picsum.photos/id/1016/600/400" alt="画像 2">
+            <p>画像2の説明テキストです。</p>
+            <a href="#">関連リンク</a>
+          </div>
+        </div>
+      </div>
+      <!-- アイテム3 (3枚) -->
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc1-3" aria-controls="acc1-3-content" aria-expanded="false">
+          画像 3 (3枚)
+        </button>
+        <div id="acc1-3-content" class="accordion-content" role="region" aria-labelledby="acc1-3" hidden>
+          <div class="three-col-images">
+            <div class="image-block">
+              <img src="https://picsum.photos/id/1019/600/400" alt="画像 3-1">
+              <p>画像3-1の説明テキストです。</p>
+              <a href="#">関連リンク</a>
+            </div>
+            <div class="image-block">
+              <img src="https://picsum.photos/id/1020/600/400" alt="画像 3-2">
+              <p>画像3-2の説明テキストです。</p>
+              <a href="#">関連リンク</a>
+            </div>
+            <div class="image-block">
+              <img src="https://picsum.photos/id/1021/600/400" alt="画像 3-3">
+              <p>画像3-3の説明テキストです。</p>
+              <a href="#">関連リンク</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- アイテム4 -->
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc1-4" aria-controls="acc1-4-content" aria-expanded="false">
+          画像 4
+        </button>
+        <div id="acc1-4-content" class="accordion-content" role="region" aria-labelledby="acc1-4" hidden>
+          <div class="image-block">
+            <img src="https://picsum.photos/id/1024/600/400" alt="画像 4">
+            <p>画像4の説明テキストです。</p>
+            <a href="#">関連リンク</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- パネル2 -->
+  <div id="panel2" class="tabpanel" role="tabpanel" aria-labelledby="tab2" hidden tabindex="0">
+    <div class="image-buttons">
+      <button class="image-btn" data-images="https://picsum.photos/id/1035/600/400">画像 1</button>
+      <button class="image-btn" data-images="https://picsum.photos/id/1033/600/400">画像 2</button>
+      <button class="image-btn" data-images="https://picsum.photos/id/1032/600/400,https://picsum.photos/id/1031/600/400,https://picsum.photos/id/1030/600/400">画像 3 (3枚)</button>
+      <button class="image-btn" data-images="https://picsum.photos/id/1029/600/400">画像 4</button>
+    </div>
+    <div class="accordion-container" data-tab="panel2">
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc2-1" aria-controls="acc2-1-content" aria-expanded="false">画像 1</button>
+        <div id="acc2-1-content" class="accordion-content" role="region" aria-labelledby="acc2-1" hidden>
+          <div class="image-block">
+            <img src="https://picsum.photos/id/1035/600/400" alt="画像 1">
+            <p>画像1の説明テキストです。</p>
+            <a href="#">関連リンク</a>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc2-2" aria-controls="acc2-2-content" aria-expanded="false">画像 2</button>
+        <div id="acc2-2-content" class="accordion-content" role="region" aria-labelledby="acc2-2" hidden>
+          <div class="image-block">
+            <img src="https://picsum.photos/id/1033/600/400" alt="画像 2">
+            <p>画像2の説明テキストです。</p>
+            <a href="#">関連リンク</a>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc2-3" aria-controls="acc2-3-content" aria-expanded="false">画像 3 (3枚)</button>
+        <div id="acc2-3-content" class="accordion-content" role="region" aria-labelledby="acc2-3" hidden>
+          <div class="three-col-images">
+            <div class="image-block">
+              <img src="https://picsum.photos/id/1032/600/400" alt="画像 3-1">
+              <p>画像3-1の説明テキストです。</p>
+              <a href="#">関連リンク</a>
+            </div>
+            <div class="image-block">
+              <img src="https://picsum.photos/id/1031/600/400" alt="画像 3-2">
+              <p>画像3-2の説明テキストです。</p>
+              <a href="#">関連リンク</a>
+            </div>
+            <div class="image-block">
+              <img src="https://picsum.photos/id/1030/600/400" alt="画像 3-3">
+              <p>画像3-3の説明テキストです。</p>
+              <a href="#">関連リンク</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc2-4" aria-controls="acc2-4-content" aria-expanded="false">画像 4</button>
+        <div id="acc2-4-content" class="accordion-content" role="region" aria-labelledby="acc2-4" hidden>
+          <div class="image-block">
+            <img src="https://picsum.photos/id/1029/600/400" alt="画像 4">
+            <p>画像4の説明テキストです。</p>
+            <a href="#">関連リンク</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- パネル3 -->
+  <div id="panel3" class="tabpanel" role="tabpanel" aria-labelledby="tab3" hidden tabindex="0">
+    <div class="image-buttons">
+      <button class="image-btn" data-images="https://picsum.photos/id/1043/600/400">画像 1</button>
+      <button class="image-btn" data-images="https://picsum.photos/id/1040/600/400">画像 2</button>
+      <button class="image-btn" data-images="https://picsum.photos/id/1039/600/400,https://picsum.photos/id/1038/600/400,https://picsum.photos/id/1037/600/400">画像 3 (3枚)</button>
+      <button class="image-btn" data-images="https://picsum.photos/id/1036/600/400">画像 4</button>
+    </div>
+    <div class="accordion-container" data-tab="panel3">
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc3-1" aria-controls="acc3-1-content" aria-expanded="false">画像 1</button>
+        <div id="acc3-1-content" class="accordion-content" role="region" aria-labelledby="acc3-1" hidden>
+          <div class="image-block">
+            <img src="https://picsum.photos/id/1043/600/400" alt="画像 1">
+            <p>画像1の説明テキストです。</p>
+            <a href="#">関連リンク</a>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc3-2" aria-controls="acc3-2-content" aria-expanded="false">画像 2</button>
+        <div id="acc3-2-content" class="accordion-content" role="region" aria-labelledby="acc3-2" hidden>
+          <div class="image-block">
+            <img src="https://picsum.photos/id/1040/600/400" alt="画像 2">
+            <p>画像2の説明テキストです。</p>
+            <a href="#">関連リンク</a>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc3-3" aria-controls="acc3-3-content" aria-expanded="false">画像 3 (3枚)</button>
+        <div id="acc3-3-content" class="accordion-content" role="region" aria-labelledby="acc3-3" hidden>
+          <div class="three-col-images">
+            <div class="image-block">
+              <img src="https://picsum.photos/id/1039/600/400" alt="画像 3-1">
+              <p>画像3-1の説明テキストです。</p>
+              <a href="#">関連リンク</a>
+            </div>
+            <div class="image-block">
+              <img src="https://picsum.photos/id/1038/600/400" alt="画像 3-2">
+              <p>画像3-2の説明テキストです。</p>
+              <a href="#">関連リンク</a>
+            </div>
+            <div class="image-block">
+              <img src="https://picsum.photos/id/1037/600/400" alt="画像 3-3">
+              <p>画像3-3の説明テキストです。</p>
+              <a href="#">関連リンク</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc3-4" aria-controls="acc3-4-content" aria-expanded="false">画像 4</button>
+        <div id="acc3-4-content" class="accordion-content" role="region" aria-labelledby="acc3-4" hidden>
+          <div class="image-block">
+            <img src="https://picsum.photos/id/1036/600/400" alt="画像 4">
+            <p>画像4の説明テキストです。</p>
+            <a href="#">関連リンク</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- パネル4 -->
+  <div id="panel4" class="tabpanel" role="tabpanel" aria-labelledby="tab4" hidden tabindex="0">
+    <div class="image-buttons">
+      <button class="image-btn" data-images="https://picsum.photos/id/1050/600/400">画像 1</button>
+      <button class="image-btn" data-images="https://picsum.photos/id/1049/600/400">画像 2</button>
+      <button class="image-btn" data-images="https://picsum.photos/id/1048/600/400,https://picsum.photos/id/1047/600/400,https://picsum.photos/id/1046/600/400">画像 3 (3枚)</button>
+      <button class="image-btn" data-images="https://picsum.photos/id/1045/600/400">画像 4</button>
+    </div>
+    <div class="accordion-container" data-tab="panel4">
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc4-1" aria-controls="acc4-1-content" aria-expanded="false">画像 1</button>
+        <div id="acc4-1-content" class="accordion-content" role="region" aria-labelledby="acc4-1" hidden>
+          <div class="image-block">
+            <img src="https://picsum.photos/id/1050/600/400" alt="画像 1">
+            <p>画像1の説明テキストです。</p>
+            <a href="#">関連リンク</a>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc4-2" aria-controls="acc4-2-content" aria-expanded="false">画像 2</button>
+        <div id="acc4-2-content" class="accordion-content" role="region" aria-labelledby="acc4-2" hidden>
+          <div class="image-block">
+            <img src="https://picsum.photos/id/1049/600/400" alt="画像 2">
+            <p>画像2の説明テキストです。</p>
+            <a href="#">関連リンク</a>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc4-3" aria-controls="acc4-3-content" aria-expanded="false">画像 3 (3枚)</button>
+        <div id="acc4-3-content" class="accordion-content" role="region" aria-labelledby="acc4-3" hidden>
+          <div class="three-col-images">
+            <div class="image-block">
+              <img src="https://picsum.photos/id/1048/600/400" alt="画像 3-1">
+              <p>画像3-1の説明テキストです。</p>
+              <a href="#">関連リンク</a>
+            </div>
+            <div class="image-block">
+              <img src="https://picsum.photos/id/1047/600/400" alt="画像 3-2">
+              <p>画像3-2の説明テキストです。</p>
+              <a href="#">関連リンク</a>
+            </div>
+            <div class="image-block">
+              <img src="https://picsum.photos/id/1046/600/400" alt="画像 3-3">
+              <p>画像3-3の説明テキストです。</p>
+              <a href="#">関連リンク</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-header" id="acc4-4" aria-controls="acc4-4-content" aria-expanded="false">画像 4</button>
+        <div id="acc4-4-content" class="accordion-content" role="region" aria-labelledby="acc4-4" hidden>
+          <div class="image-block">
+            <img src="https://picsum.photos/id/1045/600/400" alt="画像 4">
+            <p>画像4の説明テキストです。</p>
+            <a href="#">関連リンク</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- モーダル -->
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-content">
+      <div id="modal-images" class="modal-images"></div>
+      <button class="close-modal">閉じる</button>
+    </div>
+  </div>
+
+  <!-- 再利用用のシンプルなタブ: モーダルやアコーディオン機能は持たない -->
+  <div class="simple-tab-module" style="margin-top: 2rem;">
+    <h2>シンプルタブのデモ</h2>
+    <div class="tablist" role="tablist" aria-label="シンプル画像カテゴリ">
+      <button id="simple-tab1" role="tab" aria-selected="true" aria-controls="simple-panel1">シンプルタブ 1</button>
+      <button id="simple-tab2" role="tab" aria-selected="false" aria-controls="simple-panel2">シンプルタブ 2</button>
+      <button id="simple-tab3" role="tab" aria-selected="false" aria-controls="simple-panel3">シンプルタブ 3</button>
+      <button id="simple-tab4" role="tab" aria-selected="false" aria-controls="simple-panel4">シンプルタブ 4</button>
+    </div>
+    <!-- パネル1 -->
+    <div id="simple-panel1" class="tabpanel active" role="tabpanel" aria-labelledby="simple-tab1" tabindex="0">
+      <div class="image-buttons">
+        <img src="https://picsum.photos/id/1074/600/400" alt="シンプルタブ1の画像">
+      </div>
+    </div>
+    <!-- パネル2 -->
+    <div id="simple-panel2" class="tabpanel" role="tabpanel" aria-labelledby="simple-tab2" hidden tabindex="-1">
+      <div class="image-buttons">
+        <img src="https://picsum.photos/id/1075/600/400" alt="シンプルタブ2の画像">
+      </div>
+    </div>
+    <!-- パネル3 -->
+    <div id="simple-panel3" class="tabpanel" role="tabpanel" aria-labelledby="simple-tab3" hidden tabindex="-1">
+      <div class="image-buttons">
+        <img src="https://picsum.photos/id/1076/600/400" alt="シンプルタブ3の画像">
+      </div>
+    </div>
+    <!-- パネル4 -->
+    <div id="simple-panel4" class="tabpanel" role="tabpanel" aria-labelledby="simple-tab4" hidden tabindex="-1">
+      <div class="image-buttons">
+        <img src="https://picsum.photos/id/1077/600/400" alt="シンプルタブ4の画像">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // タブ機能
+      // 最初のタブリストのみを対象にし、再利用モジュールは対象外とする
+      const tabList = document.querySelector('.tablist');
+      const tabs = Array.from(tabList.querySelectorAll('[role="tab"]'));
+      // タブと対応するパネルのみを取得
+      const panels = Array.from(document.querySelectorAll('[role="tabpanel"]')).filter(panel => {
+        return tabs.some(tab => tab.getAttribute('aria-controls') === panel.id);
+      });
+      let activeTab = tabs.find(t => t.getAttribute('aria-selected') === 'true') || tabs[0];
+      function activateTab(tab) {
+        // デフォルトの選択状態を更新
+        tabs.forEach(t => {
+          const isActive = t === tab;
+          t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+          // Tabキーで移動できるのはアクティブタブのみとする
+          t.setAttribute('tabindex', isActive ? '0' : '-1');
+        });
+        panels.forEach(p => {
+          const isActivePanel = p.id === tab.getAttribute('aria-controls');
+          if (isActivePanel) {
+            p.classList.add('active');
+            p.removeAttribute('hidden');
+            // アクティブなパネルのみTabキーでフォーカス可能
+            p.setAttribute('tabindex', '0');
+          } else {
+            p.classList.remove('active');
+            p.setAttribute('hidden', '');
+            // 非アクティブパネルはフォーカス対象から除外
+            p.setAttribute('tabindex', '-1');
+          }
+        });
+        activeTab = tab;
+        // モバイル時はアコーディオンの表示を調整
+        if (window.matchMedia('(max-width: 768px)').matches) {
+          panels.forEach(p => {
+            const accordion = p.querySelector('.accordion-container');
+            if (accordion) {
+              accordion.style.display = 'none';
+            }
+          });
+          const currentPanel = document.getElementById(tab.getAttribute('aria-controls'));
+          const currentAcc = currentPanel.querySelector('.accordion-container');
+          if (currentAcc) currentAcc.style.display = 'block';
+        }
+      }
+      activateTab(activeTab);
+      tabList.addEventListener('click', event => {
+        const tab = event.target.closest('[role="tab"]');
+        if (!tab) return;
+        activateTab(tab);
+        tab.focus();
+      });
+      // キーボード操作: 左右矢印でタブ移動
+      tabList.addEventListener('keydown', event => {
+        const idx = tabs.indexOf(document.activeElement);
+        if (idx === -1) return;
+        let newIdx = idx;
+        switch (event.key) {
+          case 'Enter':
+          case ' ': {
+            // Enter または Space でパネルをアクティブにし、フォーカスをパネル内へ移動
+            event.preventDefault();
+            const tab = tabs[idx];
+            activateTab(tab);
+            const panel = document.getElementById(tab.getAttribute('aria-controls'));
+            // 最初のフォーカス可能要素を探す
+            const firstFocusable = panel.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (firstFocusable) {
+              firstFocusable.focus();
+            } else {
+              panel.focus();
+            }
+            return;
+          }
+          case 'ArrowLeft':
+            newIdx = (idx - 1 + tabs.length) % tabs.length;
+            break;
+          case 'ArrowRight':
+            newIdx = (idx + 1) % tabs.length;
+            break;
+          case 'Home':
+            newIdx = 0;
+            break;
+          case 'End':
+            newIdx = tabs.length - 1;
+            break;
+          default:
+            return;
+        }
+        event.preventDefault();
+        const newTab = tabs[newIdx];
+        activateTab(newTab);
+        newTab.focus();
+      });
+
+      // パネル内 ESC でタブに戻る
+      panels.forEach(panel => {
+        panel.addEventListener('keydown', event => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            activeTab.focus();
+          }
+        });
+      });
+
+      // モーダル機能
+      const modal = document.querySelector('.modal');
+      const modalImagesContainer = document.getElementById('modal-images');
+      let lastFocusedElement;
+      let trap;
+      function openModal(images, triggerBtn) {
+        // Save last focused element to return after closing
+        lastFocusedElement = triggerBtn;
+        modalImagesContainer.innerHTML = '';
+        // 複数画像かどうかでスタイルを切り替える
+        if (images.length > 1) {
+          // 3列グリッドで表示
+          modalImagesContainer.classList.add('multiple');
+          modalImagesContainer.style.display = 'grid';
+          modalImagesContainer.style.gridTemplateColumns = 'repeat(3, 1fr)';
+          modalImagesContainer.style.gap = '1rem';
+        } else {
+          modalImagesContainer.classList.remove('multiple');
+          modalImagesContainer.style.display = '';
+          modalImagesContainer.style.gridTemplateColumns = '';
+          modalImagesContainer.style.gap = '';
+        }
+        images.forEach((src, index) => {
+          // ラッパーを作成
+          const block = document.createElement('div');
+          block.className = 'image-block';
+          const img = document.createElement('img');
+          img.src = src.trim();
+          img.alt = '拡大画像';
+          // 個別のスタイルを設定
+          if (images.length > 1) {
+            img.style.width = '100%';
+            img.style.height = 'auto';
+            img.style.margin = '0';
+          } else {
+            img.style.width = '100%';
+            img.style.height = 'auto';
+            img.style.display = 'block';
+            img.style.margin = '0 auto 1rem';
+          }
+          block.appendChild(img);
+          // 説明文とリンクを追加（ダミー）
+          const p = document.createElement('p');
+          p.textContent = 'この画像の説明テキストです。';
+          const a = document.createElement('a');
+          a.href = '#';
+          a.textContent = '関連リンク';
+          block.appendChild(p);
+          block.appendChild(a);
+          modalImagesContainer.appendChild(block);
+        });
+        modal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        // Trap focus inside modal
+        const focusable = Array.from(modal.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])'));
+        const firstFocusable = focusable[0];
+        const lastFocusable = focusable[focusable.length - 1];
+        trap = function(event) {
+          if (event.key === 'Tab') {
+            if (event.shiftKey) {
+              if (document.activeElement === firstFocusable) {
+                event.preventDefault();
+                lastFocusable.focus();
+              }
+            } else {
+              if (document.activeElement === lastFocusable) {
+                event.preventDefault();
+                firstFocusable.focus();
+              }
+            }
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            closeModal();
+          }
+        };
+        modal.addEventListener('keydown', trap);
+        firstFocusable.focus();
+      }
+      function closeModal() {
+        modal.classList.remove('open');
+        modalImagesContainer.innerHTML = '';
+        modalImagesContainer.classList.remove('multiple');
+        document.body.style.overflow = '';
+        if (trap) {
+          modal.removeEventListener('keydown', trap);
+          trap = null;
+        }
+        if (lastFocusedElement) {
+          lastFocusedElement.focus();
+        }
+      }
+      // Click outside modal content to close
+      modal.addEventListener('click', event => {
+        if (event.target === modal) {
+          closeModal();
+        }
+      });
+      // Close button
+      document.querySelector('.close-modal').addEventListener('click', () => {
+        closeModal();
+      });
+
+      // 画像ボタンのイベント
+      // メインのタブのパネル内のボタンのみにイベントを設定（再利用モジュールのボタンには設定しない）
+      panels.forEach(panel => {
+        const btns = panel.querySelectorAll('.image-buttons .image-btn');
+        btns.forEach(btn => {
+          btn.addEventListener('click', event => {
+            // スマホではモーダルを開かない
+            if (window.matchMedia('(max-width: 768px)').matches) {
+              return;
+            }
+            const images = btn.getAttribute('data-images').split(',');
+            openModal(images, btn);
+          });
+          btn.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              if (window.matchMedia('(max-width: 768px)').matches) {
+                return;
+              }
+              const images = btn.getAttribute('data-images').split(',');
+              openModal(images, btn);
+            }
+          });
+        });
+      });
+
+      // パネル内の画像ボタンで矢印キーによるフォーカス移動を実装
+      // 各パネルごとにボタンを取得し、左右上下矢印キーで隣接ボタンに移動
+      panels.forEach(panel => {
+        const btns = Array.from(panel.querySelectorAll('.image-buttons .image-btn'));
+        if (btns.length === 0) return;
+        const columns = 4; // 4列レイアウトを想定
+        btns.forEach((button, index) => {
+          button.addEventListener('keydown', event => {
+            let targetIndex = index;
+            switch (event.key) {
+              case 'ArrowRight':
+                event.preventDefault();
+                targetIndex = (index + 1) % btns.length;
+                btns[targetIndex].focus();
+                break;
+              case 'ArrowLeft':
+                event.preventDefault();
+                targetIndex = (index - 1 + btns.length) % btns.length;
+                btns[targetIndex].focus();
+                break;
+              case 'ArrowDown':
+                event.preventDefault();
+                {
+                  const newIndex = index + columns;
+                  if (newIndex < btns.length) {
+                    btns[newIndex].focus();
+                  } else {
+                    // 下に移動できない場合はそのまま
+                    btns[index].focus();
+                  }
+                }
+                break;
+              case 'ArrowUp':
+                event.preventDefault();
+                {
+                  const newIndex = index - columns;
+                  if (newIndex >= 0) {
+                    btns[newIndex].focus();
+                  } else {
+                    // 上に移動できない場合はそのまま
+                    btns[index].focus();
+                  }
+                }
+                break;
+              default:
+                break;
+            }
+          });
+        });
+      });
+
+      // アコーディオン機能
+      // メインタブに関連付けられたアコーディオンのみを対象にする
+      panels.forEach(panel => {
+        const container = panel.querySelector('.accordion-container');
+        if (!container) return;
+        const headers = Array.from(container.querySelectorAll('.accordion-header'));
+        headers.forEach(header => {
+          header.addEventListener('click', () => toggleAccordion(header));
+          header.addEventListener('keydown', event => {
+            const currentIndex = headers.indexOf(event.target);
+            switch (event.key) {
+              case 'Enter':
+              case ' ': {
+                event.preventDefault();
+                toggleAccordion(event.target);
+                break;
+              }
+              case 'ArrowDown': {
+                event.preventDefault();
+                const next = headers[(currentIndex + 1) % headers.length];
+                next.focus();
+                break;
+              }
+              case 'ArrowUp': {
+                event.preventDefault();
+                const prev = headers[(currentIndex - 1 + headers.length) % headers.length];
+                prev.focus();
+                break;
+              }
+              case 'Home': {
+                event.preventDefault();
+                headers[0].focus();
+                break;
+              }
+              case 'End': {
+                event.preventDefault();
+                headers[headers.length - 1].focus();
+                break;
+              }
+              case 'Escape': {
+                event.preventDefault();
+                // ESC でタブに戻る
+                activeTab.focus();
+                break;
+              }
+            }
+          });
+        });
+        function toggleAccordion(header) {
+          const isExpanded = header.getAttribute('aria-expanded') === 'true';
+          // close all
+          headers.forEach(h => {
+            h.setAttribute('aria-expanded', 'false');
+            const content = document.getElementById(h.getAttribute('aria-controls'));
+            if (content) {
+              content.classList.remove('open');
+              content.setAttribute('hidden', '');
+            }
+          });
+          if (!isExpanded) {
+            header.setAttribute('aria-expanded', 'true');
+            const content = document.getElementById(header.getAttribute('aria-controls'));
+            if (content) {
+              content.classList.add('open');
+              content.removeAttribute('hidden');
+            }
+          }
+        }
+      });
+
+      // 初期化：モバイル時は他のパネルのアコーディオンを非表示に
+      function handleResize() {
+        if (window.matchMedia('(max-width: 768px)').matches) {
+          panels.forEach(p => {
+            const acc = p.querySelector('.accordion-container');
+            if (acc) acc.style.display = 'none';
+          });
+          const currentPanel = document.getElementById(activeTab.getAttribute('aria-controls'));
+          const currentAcc = currentPanel.querySelector('.accordion-container');
+          if (currentAcc) currentAcc.style.display = 'block';
+        } else {
+          panels.forEach(p => {
+            const acc = p.querySelector('.accordion-container');
+            if (acc) acc.style.display = '';
+          });
+        }
+      }
+      handleResize();
+      window.addEventListener('resize', handleResize);
+
+      // ==== シンプルタブモジュールの初期化 ====
+      // メインのタブ機能とは別に、再利用モジュールのタブ切り替えのみを行う。
+      const simpleModule = document.querySelector('.simple-tab-module');
+      if (simpleModule) {
+        const simpleTabList = simpleModule.querySelector('.tablist');
+        const simpleTabs = Array.from(simpleTabList.querySelectorAll('[role="tab"]'));
+        const simplePanels = Array.from(simpleModule.querySelectorAll('[role="tabpanel"]'));
+        let simpleActiveTab = simpleTabs.find(t => t.getAttribute('aria-selected') === 'true') || simpleTabs[0];
+
+        function activateSimpleTab(tab) {
+          simpleTabs.forEach(t => {
+            const isActive = t === tab;
+            t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            t.setAttribute('tabindex', isActive ? '0' : '-1');
+          });
+          simplePanels.forEach(p => {
+            const isActivePanel = p.id === tab.getAttribute('aria-controls');
+            if (isActivePanel) {
+              p.classList.add('active');
+              p.removeAttribute('hidden');
+              p.setAttribute('tabindex', '0');
+            } else {
+              p.classList.remove('active');
+              p.setAttribute('hidden', '');
+              p.setAttribute('tabindex', '-1');
+            }
+          });
+          simpleActiveTab = tab;
+        }
+        activateSimpleTab(simpleActiveTab);
+
+        // clickで切り替え
+        simpleTabList.addEventListener('click', event => {
+          const tab = event.target.closest('[role="tab"]');
+          if (!tab) return;
+          activateSimpleTab(tab);
+          tab.focus();
+        });
+        // keyboard navigation for simple tabs
+        simpleTabList.addEventListener('keydown', event => {
+          const idx = simpleTabs.indexOf(document.activeElement);
+          if (idx === -1) return;
+          let newIdx = idx;
+          switch (event.key) {
+            case 'Enter':
+            case ' ': {
+              event.preventDefault();
+              const tab = simpleTabs[idx];
+              activateSimpleTab(tab);
+              // パネル内の先頭要素へフォーカス移動
+              const panel = document.getElementById(tab.getAttribute('aria-controls'));
+              const firstFocusable = panel.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+              if (firstFocusable) {
+                firstFocusable.focus();
+              } else {
+                panel.focus();
+              }
+              return;
+            }
+            case 'ArrowLeft':
+              newIdx = (idx - 1 + simpleTabs.length) % simpleTabs.length;
+              break;
+            case 'ArrowRight':
+              newIdx = (idx + 1) % simpleTabs.length;
+              break;
+            case 'Home':
+              newIdx = 0;
+              break;
+            case 'End':
+              newIdx = simpleTabs.length - 1;
+              break;
+            default:
+              return;
+          }
+          event.preventDefault();
+          const newTab = simpleTabs[newIdx];
+          activateSimpleTab(newTab);
+          newTab.focus();
+        });
+        // パネル内 ESC でタブに戻る
+        simplePanels.forEach(panel => {
+          panel.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              simpleActiveTab.focus();
+            }
+          });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
